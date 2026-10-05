@@ -1,0 +1,21 @@
+camera: 0               # cv2.VideoCapture source: index, file, RTSP URL or GStreamer pipeline
+frames: 10              # frames per reading, the median is published
+model: models/needle.engine  # TensorRT engine, or a .pt for testing
+min_conf: 0.5           # minimum keypoint confidence
+min_sharpness: 50       # Laplacian variance, blurrier frames are skipped (0 disables)
+log: readings.jsonl     # every reading is appended here, MQTT or not
+
+mqtt:
+  host: localhost
+  port: 1883
+  topic: robot/gauges   # published to <topic>/<gauge name>
+
+gauges:                 # keyed by AprilTag 36h11 id, generate entries with calibrate.py
+  7:
+    name: P-101
+    unit: bar
+    center: [0.5, -2.0] # dial center in tag side lengths from the tag's top-left corner (x right, y down)
+    radius: 1.5         # dial radius in tag side lengths
+    scale:              # [needle angle, value] in clockwise order, angle in degrees clockwise from 12 o'clock
+      - [225, 0]
+      - [135, 10]

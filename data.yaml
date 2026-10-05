@@ -1,0 +1,7 @@
+path: datasets/gauges   # output of syncg_to_yolo.py, add your own labeled crops here too
+train: images/train
+val: images/val
+kpt_shape: [2, 3]       # needle base, needle tip
+flip_idx: [0, 1]
+names:
+  0: gauge
