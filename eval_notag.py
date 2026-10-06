@@ -5,6 +5,8 @@
 photos/truth.csv has columns file,value,min,max: the value you read off the
 gauge and the values at the two ends of its scale. For each photo, click the
 dial center, a point on the rim, the min mark and the max mark (Esc skips).
+If value is empty, you are asked for it in the terminal after clicking, and
+the answers are saved back into truth.csv.
 There is no perspective correction, so photos should be roughly head-on.
 The scale is assumed linear between min and max.
 """
@@ -53,7 +55,10 @@ def main(weights, folder):
     model = Needle(weights)
     os.makedirs("crops_notag", exist_ok=True)
     errs = []
-    for row in csv.DictReader(open(os.path.join(folder, "truth.csv"))):
+    truth = os.path.join(folder, "truth.csv")
+    reader = csv.DictReader(open(truth))
+    rows = list(reader)
+    for row in rows:
         stem = os.path.splitext(row["file"])[0]
         img = cv2.imread(os.path.join(folder, row["file"]))
         if img is None:
@@ -65,6 +70,12 @@ def main(weights, folder):
         if pts is None:
             print(f"{row['file']}: skipped")
             continue
+        if not row["value"].strip():
+            row["value"] = input(f"{row['file']}: value on the gauge? ").strip()
+            with open(truth, "w", newline="") as f:
+                w = csv.DictWriter(f, fieldnames=reader.fieldnames)
+                w.writeheader()
+                w.writerows(rows)
         c, rim, lo, hi = pts
         dial = crop(img, c, np.linalg.norm(rim - c))
         out = model(dial)
