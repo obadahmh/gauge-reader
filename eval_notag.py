@@ -4,7 +4,8 @@
 
 photos/truth.csv has columns file,value,min,max: the value you read off the
 gauge and the values at the two ends of its scale. For each photo, click the
-dial center, a point on the rim, the min mark and the max mark (Esc skips).
+dial center, a point on the rim, the min mark and the max mark. Right-click or
+Backspace undoes the last click, Esc skips the photo.
 If value is empty, you are asked for it in the terminal after clicking, and
 the answers are saved back into truth.csv.
 There is no perspective correction, so photos should be roughly head-on.
@@ -24,23 +25,30 @@ STEPS = ["center", "rim", "min mark", "max mark"]
 
 def click(img, view=1000):
     s = view / max(img.shape[:2])
-    disp = cv2.resize(img, None, fx=s, fy=s)
+    base = cv2.resize(img, None, fx=s, fy=s)
     pts = []
 
     def on_click(event, x, y, *_):
         if event == cv2.EVENT_LBUTTONDOWN and len(pts) < len(STEPS):
-            cv2.circle(disp, (x, y), 5, (0, 0, 255), -1)
-            cv2.putText(disp, STEPS[len(pts)], (x + 8, y - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-            pts.append((x / s, y / s))
+            pts.append((x, y))
+        elif event == cv2.EVENT_RBUTTONDOWN and pts:
+            pts.pop()
 
     cv2.namedWindow("click")
     cv2.setMouseCallback("click", on_click)
     while len(pts) < len(STEPS):
+        disp = base.copy()
+        for (x, y), name in zip(pts, STEPS):
+            cv2.circle(disp, (x, y), 5, (0, 0, 255), -1)
+            cv2.putText(disp, name, (x + 8, y - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
         cv2.imshow("click", disp)
-        cv2.setWindowTitle("click", f"click: {STEPS[len(pts)]}  (Esc skips)")
-        if cv2.waitKey(20) == 27:
+        cv2.setWindowTitle("click", f"click: {STEPS[len(pts)]}  (right-click or Backspace undoes, Esc skips)")
+        key = cv2.waitKey(20)
+        if key == 27:
             return None
-    return np.array(pts)
+        if key in (8, 127) and pts:
+            pts.pop()
+    return np.array(pts) / s
 
 
 def crop(img, center, radius, size=CROP, margin=1.15):
