@@ -8,12 +8,16 @@ Keypoints: 0 = needle base, 1 = needle tip.
 """
 import json
 import sys
+from multiprocessing import Pool
 from pathlib import Path
 
 import cv2
 import numpy as np
+from tqdm import tqdm
 
 from gauge import CROP
+
+cv2.setNumThreads(1)  # one process per core instead
 
 
 def convert(ann, img, size=CROP):
@@ -35,18 +39,22 @@ def main(src, dst):
     for split, out in (("train", "train"), ("test", "val")):
         (dst / "images" / out).mkdir(parents=True, exist_ok=True)
         (dst / "labels" / out).mkdir(parents=True, exist_ok=True)
-        n = 0
-        for jp in sorted((src / "annotations" / split).glob("*.json")):
-            imgs = list((src / "images" / split).glob(jp.stem + ".*"))
-            if not imgs:
-                continue
-            crop, label = convert(json.loads(jp.read_text()), cv2.imread(str(imgs[0])))
-            if crop is None:
-                continue
-            cv2.imwrite(str(dst / "images" / out / f"{jp.stem}.jpg"), crop)
-            (dst / "labels" / out / f"{jp.stem}.txt").write_text(label)
-            n += 1
-        print(f"{split}: {n} crops")
+        images = {p.stem: p for p in (src / "images" / split).iterdir()}
+        jobs = [(jp, images[jp.stem], dst / "images" / out / f"{jp.stem}.jpg", dst / "labels" / out / f"{jp.stem}.txt")
+                for jp in sorted((src / "annotations" / split).glob("*.json")) if jp.stem in images]
+        with Pool() as pool:
+            n = sum(tqdm(pool.imap_unordered(work, jobs, chunksize=16), total=len(jobs), desc=split))
+        print(f"{split}: {n} of {len(jobs)} converted")
+
+
+def work(job):
+    jp, ip, img_out, label_out = job
+    crop, label = convert(json.loads(jp.read_text()), cv2.imread(str(ip)))
+    if crop is None:
+        return 0
+    cv2.imwrite(str(img_out), crop)
+    label_out.write_text(label)
+    return 1
 
 
 if __name__ == "__main__":

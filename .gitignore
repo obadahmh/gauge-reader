@@ -7,3 +7,12 @@ crops/
 *.engine
 *.onnx
 readings.jsonl
+photos/
+worst_*.jpg
+grid.jpg
+*.[jJ][pP][gG]
+*.[jJ][pP][eE][gG]
+*.[pP][nN][gG]
+*.[hH][eE][iI][cC]
+*.[hH][eE][iI][fF]
+Miniforge3-*

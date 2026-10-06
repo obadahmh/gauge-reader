@@ -1,4 +1,4 @@
-path: datasets/gauges   # output of syncg_to_yolo.py, add your own labeled crops here too
+path: datasets/gauges   # use an absolute path, see README step 3
 train: images/train
 val: images/val
 kpt_shape: [2, 3]       # needle base, needle tip

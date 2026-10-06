@@ -2,3 +2,4 @@ ultralytics
 opencv-python>=4.7
 paho-mqtt>=2
 pyyaml
+pillow-heif
