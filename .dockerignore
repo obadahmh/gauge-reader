@@ -1,0 +1,10 @@
+.git
+datasets
+runs
+test
+photos
+crops*
+*.log
+*.pt
+!yolo26n-pose.pt
+**/__pycache__
