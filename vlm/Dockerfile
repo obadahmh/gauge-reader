@@ -9,6 +9,7 @@ COPY vlm/requirements.txt vlm/requirements.txt
 RUN pip install --no-cache-dir -r vlm/requirements.txt
 COPY vlm vlm
 
-# The pod runs as a non-root user, so caches go to writable paths.
-# HF_HOME is on the runs/ hostPath, so the model is downloaded once.
-ENV HOME=/tmp WANDB_DIR=/tmp HF_HOME=/data/runs/hf-cache PYTHONUNBUFFERED=1
+# The pod runs as a host UID with no passwd entry, so set USER (read by getpass)
+# and point caches to writable paths. HF_HOME is on the runs/ hostPath, so the model is downloaded once.
+ENV HOME=/tmp USER=gauge TORCHINDUCTOR_CACHE_DIR=/tmp/torchinductor WANDB_DIR=/tmp \
+    HF_HOME=/data/runs/hf-cache PYTHONUNBUFFERED=1
