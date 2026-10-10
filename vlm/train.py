@@ -83,14 +83,14 @@ def main():
     model.print_trainable_parameters()
 
     train = [r | {"augment": True} for r in read_jsonl(Path(args.data) / "train.jsonl")[:args.limit]]
-    val = read_jsonl(Path(args.data) / "val.jsonl")  # no augmentation
+    val = read_jsonl(Path(args.data) / "val.jsonl")[:16 if args.limit else None]  # no augmentation
     steps = max(len(train) // (args.batch * args.accum), 1)
     targs = TrainingArguments(
         output_dir=str(out), num_train_epochs=args.epochs, learning_rate=args.lr,
         per_device_train_batch_size=args.batch, per_device_eval_batch_size=args.batch,
         gradient_accumulation_steps=args.accum, lr_scheduler_type="cosine", warmup_ratio=0.03,
         bf16=True, optim="paged_adamw_8bit", logging_steps=5,
-        eval_strategy="steps", eval_steps=max(steps // 4, 10), save_strategy="steps", save_steps=max(steps // 4, 10),
+        eval_strategy="steps", eval_steps=max(steps // 4, 1), save_strategy="steps", save_steps=max(steps // 4, 1),
         save_total_limit=2, remove_unused_columns=False, dataloader_num_workers=2,
         report_to="wandb" if os.environ.get("WANDB_API_KEY") else "none", run_name=out.name)
 
