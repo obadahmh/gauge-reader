@@ -88,10 +88,10 @@ def main():
     targs = TrainingArguments(
         output_dir=str(out), num_train_epochs=args.epochs, learning_rate=args.lr,
         per_device_train_batch_size=args.batch, per_device_eval_batch_size=args.batch,
-        gradient_accumulation_steps=args.accum, lr_scheduler_type="cosine", warmup_ratio=0.03,
-        bf16=True, optim="paged_adamw_8bit", logging_steps=5,
+        gradient_accumulation_steps=args.accum, lr_scheduler_type="cosine", warmup_steps=0.03,
+        bf16=True, optim="paged_adamw_8bit", logging_steps=1 if args.limit else 5,
         eval_strategy="steps", eval_steps=max(steps // 4, 1), save_strategy="steps", save_steps=max(steps // 4, 1),
-        save_total_limit=2, remove_unused_columns=False, dataloader_num_workers=2,
+        save_total_limit=2, remove_unused_columns=False, dataloader_num_workers=2, prediction_loss_only=True,
         report_to="wandb" if os.environ.get("WANDB_API_KEY") else "none", run_name=out.name)
 
     trainer = Trainer(model=model, args=targs, train_dataset=train, eval_dataset=val,
