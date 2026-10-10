@@ -35,3 +35,24 @@ Unparsable VLM answers and missed YOLO detections fail all tolerances.
 | `runs/` | `/data/runs` |
 
 The model cache is `runs/hf-cache`.
+
+## Results
+
+SyncG test set (4,000 dials). Error is % of full scale (FS).
+
+| Model | Mean error | Median | p95 | Within 1% FS | Within 2% FS | Within 5% FS |
+|---|---|---|---|---|---|---|
+| YOLO needle model + true scale | 0.40% | 0.30% | 1.07% | 93.9% | 99.5% | 100% |
+| Qwen3-VL-8B, zero-shot | 11.83% | 4.64% | 45.79% | 14.3% | 27.2% | 51.8% |
+| Qwen3-VL-8B, QLoRA | 1.40% | 0.70% | 3.37% | 64.5% | 87.4% | 97.5% |
+
+Real photos (45, full frame, no crop or calibration):
+
+| Model | Mean error | Median | Within 1% FS | Within 2% FS | Within 5% FS |
+|---|---|---|---|---|---|
+| Qwen3-VL-8B, zero-shot | 8.12% | 3.64% | 17.8% | 28.9% | 66.7% |
+| Qwen3-VL-8B, QLoRA | 5.05% | 1.00% | 48.9% | 82.2% | 95.6% |
+
+Training: 4,000 images, 2 epochs, one RTX A4000 at a 100 W power cap, approximately 2 hours, 8.6 GiB peak GPU memory.
+YOLO remains more accurate on SyncG. The VLM reads the value directly, with no per-gauge calibration.
+On real photos, two large errors raise the mean above the 95th percentile.
