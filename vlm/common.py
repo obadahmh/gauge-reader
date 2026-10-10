@@ -1,4 +1,4 @@
-"""Functions for train.py, predict.py and yolo_errors.py: the prompt, the model load and the scores."""
+"""Prompt, model loading and metrics for train.py, predict.py and yolo_errors.py."""
 import json
 import re
 
@@ -17,8 +17,8 @@ def messages(answer=None):
 
 
 def load(model_id=MODEL, adapter=None):
-    """Load Qwen3-VL. The language model is in 4-bit NF4 (QLoRA).
-    The vision encoder and lm_head stay in bf16. They are small, and 4-bit decreases their accuracy."""
+    """Load Qwen3-VL with the language model in 4-bit NF4.
+    The vision encoder and lm_head stay in bf16: they are small and sensitive to quantization."""
     import torch
     from transformers import AutoModelForImageTextToText, AutoProcessor, BitsAndBytesConfig
 
@@ -44,9 +44,8 @@ def parse(text):
 
 
 def summary(rows):
-    """Calculate the scores. Each row must have value, pred and full_scale.
-    pred is None if the answer has no number. These rows count as failures in the tolerance shares.
-    The mean errors do not include them."""
+    """Calculate the metrics from rows with value, pred and full_scale.
+    pred is None for an unparsable answer. Such rows are excluded from the mean errors and fail all tolerances."""
     ok = [r for r in rows if r["pred"] is not None]
     err = np.array([abs(r["pred"] - r["value"]) for r in ok])
     pct = np.array([e / r["full_scale"] * 100 for e, r in zip(err, ok)])

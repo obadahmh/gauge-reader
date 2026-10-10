@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Run one VLM command as a Kubernetes Job with one GPU.
+# Run a VLM command as a single-GPU Kubernetes Job.
 # Usage: [TAG=..] [MEM=14Gi] vlm/submit.sh NAME python vlm/<script>.py ARGS...
 # Example: vlm/submit.sh zeroshot python vlm/predict.py /data/datasets/gauges_vlm test /data/runs/vlm/zeroshot
-# To see the log: kubectl logs -f job/vlm-NAME
-# k3d mounts datasets/ and runs/ of this repo at /data/datasets and /data/runs in the cluster.
+# Logs: kubectl logs -f job/vlm-NAME
+# k3d mounts the repo's datasets/ and runs/ at /data/datasets and /data/runs.
 set -euo pipefail
 NAME=$1; shift
 TAG=${TAG:-$(git rev-parse --short HEAD)}

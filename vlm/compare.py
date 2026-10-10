@@ -1,4 +1,4 @@
-"""Show the scores of all runs in one table. The table uses the *_summary.json files.
+"""Tabulate the *_summary.json files of several runs.
 
     python vlm/compare.py runs/vlm/yolo runs/vlm/zeroshot runs/vlm/r8
 """

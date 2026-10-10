@@ -1,21 +1,13 @@
-"""Make the VLM dataset. Each item is a front-on dial image, a question and the true reading.
+"""Build the VLM dataset: rectified dial image, prompt and ground-truth reading.
 
     python vlm/make_data.py ~/data/syncG_raw/syncG datasets/gauges_vlm --real test/
 
-Run this script on the server, not in a pod.
-The script uses the same warp as syncg_to_yolo.py. Thus the test images show the same dials as the YOLO test images.
-The image size is 512 px, not 320 px. At 512 px, the numbers on the scale are easier to read.
+Run on the host. Uses the homography warp of syncg_to_yolo.py at 512 px (YOLO: 320 px), so scale labels stay legible.
+Writes images/<split>/*.jpg and <split>.jsonl. Each record has the reading (value), the scale range
+(start, full_scale) and units_per_degree, which converts YOLO angle error to reading error.
 
-For each split, the script writes images/<split>/*.jpg and <split>.jsonl. Each JSONL line has these fields:
-- value: the true reading.
-- start and full_scale: these give the error as a percentage of full scale.
-- units_per_degree: this changes the YOLO angle error into a reading error.
-
-The splits are:
-- train: --train-n random images from the SyncG train set.
-- val: --val-n other images from the SyncG train set. Use them only for the validation loss.
-- test: all SyncG test images that the warp accepts. This is the same set as the YOLO val folder.
-- real: your photos. The script makes this split only if you give --real.
+Splits: train (--train-n SyncG train images), val (--val-n further train images, validation loss only),
+test (all SyncG test images, the same set as the YOLO val folder), real (photos in --real).
 """
 import argparse
 import csv
@@ -37,7 +29,7 @@ SIZE = 512
 
 
 def answer(value, interval):
-    """Write the reading as text. The precision is approximately 1/100 of a major interval."""
+    """Format the reading to approximately 1/100 of a major interval."""
     decimals = max(0, 2 - math.floor(math.log10(interval))) if interval > 0 else 2
     return f"{value:.{decimals}f}"
 
@@ -77,7 +69,7 @@ def build_real(folder, dst, max_side=768):
         stem = Path(row["file"]).stem
         im = cv2.imread(str(Path(folder) / row["file"]))
         if im is None:
-            im = cv2.imread(str(Path(folder) / f"{stem}.jpg"))  # truth.csv can have the .HEIC name
+            im = cv2.imread(str(Path(folder) / f"{stem}.jpg"))  # truth.csv may list the .HEIC name
         if im is None or not row["value"].strip():
             print(f"{row['file']}: skipped (can't read it, or no value)")
             continue

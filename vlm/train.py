@@ -1,14 +1,10 @@
-"""Fine-tune Qwen3-VL on gauge images with QLoRA.
+"""QLoRA fine-tune of Qwen3-VL on rectified gauge images.
 
     python vlm/train.py /data/datasets/gauges_vlm /data/runs/vlm/r8 --epochs 2
 
-Run this script in a pod (see submit.sh).
-The language model is in 4-bit, and its weights do not change.
-The script trains only small LoRA adapters on the attention and MLP layers.
-The loss uses only the answer tokens.
-If WANDB_API_KEY is set, the script sends the training metrics to W&B.
-If the pod starts again, training continues from the last checkpoint.
-At the end, the script writes a DONE file.
+Run in a pod (see submit.sh). The 4-bit language model is frozen. Only LoRA adapters on the attention
+and MLP projections are trained. The loss is masked to the answer tokens. Logs to W&B if WANDB_API_KEY is set.
+Resumes from the last checkpoint after a pod restart, and writes a DONE marker on completion.
 """
 import argparse
 import os
@@ -25,7 +21,7 @@ from transformers import Trainer, TrainingArguments
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import MODEL, load, messages, read_jsonl  # noqa: E402
 
-# A rotation of the full dial moves the scale and the needle together. The reading does not change.
+# Rotating the whole dial rotates the scale with the needle, so the reading is unchanged.
 AUGMENT = transforms.Compose([
     transforms.RandomRotation(10, fill=(127, 127, 127)),
     transforms.ColorJitter(0.3, 0.3, 0.3, 0.02),
@@ -49,7 +45,7 @@ class Collator:
     def __call__(self, rows):
         texts = [self.prompt + r["answer"] + self.end for r in rows]
         batch = self.processor(text=texts, images=[self.image(r) for r in rows], padding=True, return_tensors="pt")
-        # The loss uses only the answer. Mask all tokens except the last k real tokens of each row.
+        # Mask all but the last k non-padding tokens (the answer) of each row.
         labels = torch.full_like(batch["input_ids"], -100)
         lengths = batch["attention_mask"].sum(1)
         for i, r in enumerate(rows):
@@ -87,7 +83,7 @@ def main():
     model.print_trainable_parameters()
 
     train = [r | {"augment": True} for r in read_jsonl(Path(args.data) / "train.jsonl")[:args.limit]]
-    val = read_jsonl(Path(args.data) / "val.jsonl")  # no changes to these images
+    val = read_jsonl(Path(args.data) / "val.jsonl")  # no augmentation
     steps = max(len(train) // (args.batch * args.accum), 1)
     targs = TrainingArguments(
         output_dir=str(out), num_train_epochs=args.epochs, learning_rate=args.lr,

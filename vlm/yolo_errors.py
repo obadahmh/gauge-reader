@@ -1,13 +1,9 @@
-"""Calculate the YOLO scores in reading units, on the same test images as the VLM.
+"""Evaluate the YOLO needle model in reading units on the VLM test set.
 
     python vlm/yolo_errors.py runs/pose/n416/weights/best.pt datasets/gauges_vlm runs/vlm/yolo
 
-Run this script on the server, not in a pod.
-YOLO gives a needle angle. The true scale of each SyncG dial gives the value for each degree.
-The script uses this scale to change the angle error into a reading error.
-This method uses a perfect calibration. Real gauges do not have a perfect calibration.
-Thus the YOLO scores are slightly better than in real use.
-The script uses the 320 px images in datasets/gauges/images/val. These are the YOLO test images.
+Run on the host. Converts needle angle error to reading error with the true SyncG scale (units per degree).
+This assumes perfect calibration, so it is a best case for YOLO. Uses the 320 px images in datasets/gauges/images/val.
 """
 import csv
 import json
@@ -39,11 +35,11 @@ def main(weights, vlm_data, out, yolo_data="datasets/gauges"):
         im = cv2.imread(str(lp).replace("/labels/", "/images/").replace(".txt", ".jpg"))
         res = model(im)
         if res is None:
-            r["angle_err"], r["pred"] = 180.0, None  # no needle found: this counts as a failure, as for a VLM answer with no number
+            r["angle_err"], r["pred"] = 180.0, None  # no detection: fails all tolerances, like an unparsable VLM answer
             continue
         pr = (res[0] / im.shape[1], res[1] / im.shape[0])
         r["angle_err"] = angle_err(needle_angle(*pr), needle_angle(v[5:7], v[8:10]))
-        r["pred"] = r["value"] + r["angle_err"] * r["units_per_degree"]  # only the size of the error is important
+        r["pred"] = r["value"] + r["angle_err"] * r["units_per_degree"]  # only the magnitude matters
     s = summary(rows) | {"sec_per_image": (time.time() - t0) / len(rows), "weights": weights}
     with open(out / "test_pred.csv", "w", newline="") as f:
         w = csv.writer(f)

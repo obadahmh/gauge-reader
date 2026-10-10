@@ -1,13 +1,10 @@
-"""Get the VLM reading for each image in a split, then calculate the scores.
+"""Run VLM inference on a split and calculate the metrics.
 
     python vlm/predict.py /data/datasets/gauges_vlm test /data/runs/vlm/zeroshot
     python vlm/predict.py /data/datasets/gauges_vlm test /data/runs/vlm/r8 --adapter /data/runs/vlm/r8/adapter
 
-Run this script in a pod (see submit.sh).
-The script writes two files:
-- <out>/<split>_pred.csv: one row for each image, with the full answer of the model.
-- <out>/<split>_summary.json: the scores.
-If WANDB_API_KEY is set, the script also sends the scores to W&B.
+Run in a pod (see submit.sh). Writes <out>/<split>_pred.csv (per-image predictions and raw answers)
+and <out>/<split>_summary.json. Logs to W&B if WANDB_API_KEY is set.
 """
 import argparse
 import csv
@@ -40,7 +37,7 @@ def main():
     rows = read_jsonl(Path(args.data) / f"{args.split}.jsonl")[:args.limit]
     model, processor = load(args.model, args.adapter)
     model.eval()
-    processor.tokenizer.padding_side = "left"  # the model adds new tokens on the right
+    processor.tokenizer.padding_side = "left"  # left padding for batched generation
     prompt = processor.apply_chat_template(messages(), add_generation_prompt=True, tokenize=False)
 
     t0 = time.time()
