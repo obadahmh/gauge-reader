@@ -52,6 +52,8 @@ def synth(weights, data="datasets/gauges"):
             continue
         pr = (out[0] / im.shape[1], out[1] / im.shape[0])
         res.append((angle_err(needle_angle(*pr), needle_angle(*gt)), ip, gt, pr))
+    if not res:
+        raise SystemExit(f"No labels in {data}/labels/val. Run from the repo root.")
     errs = np.array([r[0] for r in res])
     print(f"n={len(errs)}  median {np.median(errs):.2f} deg  p95 {np.percentile(errs, 95):.2f} deg  "
           f"over 5 deg {(errs > 5).mean():.1%}  no detection {sum(r[3] is None for r in res)}")
