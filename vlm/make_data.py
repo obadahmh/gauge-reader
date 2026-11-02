@@ -7,7 +7,10 @@ Writes images/<split>/*.jpg and <split>.jsonl. Each record has the reading (valu
 (start, full_scale) and units_per_degree, which converts YOLO angle error to reading error.
 
 Splits: train (--train-n SyncG train images), val (--val-n further train images, validation loss only),
-test (all SyncG test images, the same set as the YOLO val folder), real (photos in --real).
+pool (--pool-n further train images, for DPO pair sampling), test (all SyncG test images, the same set as
+the YOLO val folder), real (photos in --real). --splits builds only the given splits, for example:
+
+    python vlm/make_data.py ~/data/syncG_raw/syncG datasets/gauges_vlm --splits pool
 """
 import argparse
 import csv
@@ -92,6 +95,8 @@ def main():
     ap.add_argument("dst")
     ap.add_argument("--train-n", type=int, default=4000)
     ap.add_argument("--val-n", type=int, default=200)
+    ap.add_argument("--pool-n", type=int, default=3000)
+    ap.add_argument("--splits", default="train,val,pool,test,real", help="comma-separated splits to build")
     ap.add_argument("--real", help="folder with your photos and truth.csv")
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
@@ -99,10 +104,17 @@ def main():
 
     stems = sorted(p.stem for p in (src / "annotations" / "train").glob("*.json"))
     random.Random(args.seed).shuffle(stems)
-    build(src, dst, "train", "train", set(stems[:args.train_n]))
-    build(src, dst, "train", "val", set(stems[args.train_n:args.train_n + args.val_n]))
-    build(src, dst, "test", "test")
-    if args.real:
+    splits = args.splits.split(",")
+    a, b = args.train_n, args.train_n + args.val_n
+    if "train" in splits:
+        build(src, dst, "train", "train", set(stems[:a]))
+    if "val" in splits:
+        build(src, dst, "train", "val", set(stems[a:b]))
+    if "pool" in splits:  # train images that SFT did not see
+        build(src, dst, "train", "pool", set(stems[b:b + args.pool_n]))
+    if "test" in splits:
+        build(src, dst, "test", "test")
+    if "real" in splits and args.real:
         build_real(args.real, dst)
 
 

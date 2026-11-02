@@ -17,6 +17,8 @@ Input: a rectified dial image and the prompt "Read this analog gauge. Reply with
 | `predict.py` | Runs inference, zero-shot or with an adapter, and calculates the metrics. |
 | `train.py` | QLoRA fine-tune: rank 8, alpha 16, LR 2e-4, cosine schedule, answer-only loss, light augmentation. Logs to W&B. |
 | `compare.py` | Tabulates the metrics of all runs. |
+| `sample_pairs.py` | Samples 8 readings per pool image from the SFT model and makes DPO preference pairs. |
+| `dpo.py` | DPO of the SFT adapter on the preference pairs. |
 | `Dockerfile`, `submit.sh` | Training image and single-GPU Job, as in `k8s/`. |
 
 ## Metrics
@@ -56,3 +58,20 @@ Real photos (45, full frame, no crop or calibration):
 Training: 4,000 images, 2 epochs, one RTX A4000 at a 100 W power cap, approximately 2 hours, 8.6 GiB peak GPU memory.
 YOLO remains more accurate on SyncG. The VLM reads the value directly, with no per-gauge calibration.
 On real photos, two large errors raise the mean above the 95th percentile.
+
+## DPO (preference tuning)
+
+DPO (Direct Preference Optimization) trains the model to give a higher probability to a preferred answer ("chosen") than to a worse answer ("rejected") for the same input. A frozen reference model keeps the trained model near its start point. Here, the reference is the SFT adapter.
+
+Data: the pool split, 3,000 SyncG train images that SFT did not see. No new labels are necessary: the true reading of each image is known.
+
+1. `sample_pairs.py`: the SFT model reads each pool image 8 times with sampling (temperature 1.0). The reading with the smallest error is "chosen". The reading with the largest error, or an unparsable answer, is "rejected". A pair is kept only if the chosen error is at most 1% FS and the rejected error is at least 1% FS larger. The pairs are on-policy: they come from the model that DPO trains.
+2. `dpo.py`: continues the SFT LoRA adapter (rank 8) with the DPO loss. beta 0.1, LR 2e-5, cosine schedule, 16 pairs per optimizer step, 1 epoch. The reference log-probabilities are calculated once before training. Loss and format are the same as in SFT: the loss covers only the answer tokens.
+3. `predict.py` with `--adapter <dpo run>/adapter`: the same test and real metrics as above.
+
+```
+python vlm/make_data.py ~/data/syncG_raw/syncG datasets/gauges_vlm --splits pool       # on the host
+vlm/submit.sh pairs python vlm/sample_pairs.py /data/datasets/gauges_vlm /data/runs/vlm/dpo --adapter /data/runs/vlm/r8/adapter
+vlm/submit.sh dpo python vlm/dpo.py /data/datasets/gauges_vlm /data/runs/vlm/dpo/pairs.jsonl /data/runs/vlm/dpo/b0.1 --adapter /data/runs/vlm/r8/adapter
+vlm/submit.sh dpo-test python vlm/predict.py /data/datasets/gauges_vlm test /data/runs/vlm/dpo/b0.1 --adapter /data/runs/vlm/dpo/b0.1/adapter
+```
