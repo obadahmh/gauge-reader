@@ -19,6 +19,7 @@ Input: a rectified dial image and the prompt "Read this analog gauge. Reply with
 | `compare.py` | Tabulates the metrics of all runs. |
 | `sample_pairs.py` | Samples 8 readings per pool image from the SFT model and makes DPO preference pairs. |
 | `dpo.py` | DPO of the SFT adapter on the preference pairs. |
+| `paired.py` | Paired comparison of two runs on the same images: win counts, McNemar test, bootstrap intervals. |
 | `Dockerfile`, `submit.sh` | Training image and single-GPU Job, as in `k8s/`. |
 
 ## Metrics
