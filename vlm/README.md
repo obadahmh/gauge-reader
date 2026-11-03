@@ -67,7 +67,7 @@ DPO (Direct Preference Optimization) trains the model to give a higher probabili
 Data: the pool split, 3,000 SyncG train images that SFT did not see. No new labels are necessary: the true reading of each image is known.
 
 1. `sample_pairs.py`: the SFT model reads each pool image 8 times with sampling (temperature 1.0). The reading with the smallest error is "chosen". The reading with the largest error, or an unparsable answer, is "rejected". A pair is kept only if the chosen error is at most 1% FS and the rejected error is at least 1% FS larger. The pairs are on-policy: they come from the model that DPO trains.
-2. `dpo.py`: continues the SFT LoRA adapter (rank 8) with the DPO loss. beta 0.1, LR 2e-5, cosine schedule, 16 pairs per optimizer step, 1 epoch. The reference log-probabilities are calculated once before training. Loss and format are the same as in SFT: the loss covers only the answer tokens.
+2. `dpo.py`: continues the SFT LoRA adapter (rank 8) with the DPO loss. beta 0.1, LR 2e-5, cosine schedule, 16 pairs per optimizer step, 1 epoch. 100 pairs are held out for the eval loss and the pair accuracy. The reference log-probabilities are calculated once before training. Loss and format are the same as in SFT: the loss covers only the answer tokens.
 3. `predict.py` with `--adapter <dpo run>/adapter`: the same test and real metrics as above.
 
 ```
@@ -76,3 +76,27 @@ vlm/submit.sh pairs python vlm/sample_pairs.py /data/datasets/gauges_vlm /data/r
 vlm/submit.sh dpo python vlm/dpo.py /data/datasets/gauges_vlm /data/runs/vlm/dpo/pairs.jsonl /data/runs/vlm/dpo/b0.1 --adapter /data/runs/vlm/r8/adapter
 vlm/submit.sh dpo-test python vlm/predict.py /data/datasets/gauges_vlm test /data/runs/vlm/dpo/b0.1 --adapter /data/runs/vlm/dpo/b0.1/adapter
 ```
+
+### DPO results
+
+Pairs: 3,000 pool images, 8 samples each, 2,382 pairs (79%). A single sample has a 2.61% FS mean error. The best of 8 samples has a 0.51% FS mean error. Sampling time: 2.2 s per image.
+
+Training: 2,282 pairs, 143 optimizer steps, 1 hour, 8.0 GiB peak GPU memory. On the 100 held-out pairs, the eval loss decreased from 0.693 to 0.273, and the share of pairs where the model prefers the chosen answer increased from 50% to 88%.
+
+Greedy decoding, the same images as above:
+
+| Split | Model | Mean error | Median | p95 | Within 1% FS | Within 2% FS | Within 5% FS |
+|---|---|---|---|---|---|---|---|
+| SyncG test (4,000) | SFT | 1.40% | 0.70% | 3.37% | 64.5% | 87.4% | 97.5% |
+| SyncG test (4,000) | SFT + DPO | 1.37% | 0.66% | 3.14% | 66.0% | 88.7% | 97.3% |
+| Real photos (45) | SFT | 5.05% | 1.00% | 2.44% | 48.9% | 82.2% | 95.6% |
+| Real photos (45) | SFT + DPO | 4.78% | 0.64% | 2.87% | 66.7% | 91.1% | 95.6% |
+
+Paired comparison (`paired.py`). McNemar p-values are two-sided. The intervals are 95% paired bootstrap intervals.
+
+| Split | Within 1% FS, DPO minus SFT | McNemar p, 1% FS | McNemar p, 2% FS | Mean error, DPO minus SFT |
+|---|---|---|---|---|
+| SyncG test | +1.5 points [+0.2, +2.8] | 0.020 | 0.003 | −0.03% FS [−0.16, +0.08] |
+| Real photos | +17.8 points [+4.4, +31.1] (22 to 30 photos) | 0.039 | 0.219 | −0.27% FS [−0.46, −0.08] |
+
+DPO increases the share of readings within 1% and 2% FS on SyncG. The increase is small but statistically significant. The change of the mean error on SyncG is not significant. On the real photos, the increase is larger, but the sample is small and the interval is wide. No hyperparameter was tuned on the test or real splits: this is the only DPO run.
